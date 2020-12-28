@@ -1,33 +1,34 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <stdio.h>
-#include <string.h>
+enum {
+    PREF_OUTPUT     = 1<<0,
+    PREF_NAME       = 1<<1,
+    PREF_COMPACT    = 1<<2,
+};
 
-int main(int argc, const char* argv[]){
-    if (argc < 6)
+int main(int argc, char* argv[]){
+    if (argc < 2)
         goto err_usage;
     
-    char compact = 0;
+    char pref = 0;
     int output_name_idx, array_name_idx;
     {
         int check = 0;
         for (int i = 0; i<argc; i++){
             if (strncmp(argv[i], "-o", 2) == 0) {
                 output_name_idx = i+1;
-                check |= 1;
+                pref |= PREF_OUTPUT;
                 i++;
             }
             else if (strncmp(argv[i], "-n", 2) == 0) {
                 array_name_idx = i+1;
-                check |= 2;
+                pref |= PREF_NAME;
                 i++;
             }
             else if (strncmp(argv[i], "-c", 2) == 0)
-                compact = 1;
+                pref |= PREF_COMPACT;
         }
-        if (check != 3)
-            goto err_usage;
     }
     
     int img_width, img_height, img_depth;
@@ -37,18 +38,23 @@ int main(int argc, const char* argv[]){
     
     unsigned long long img_size = img_width*img_height*img_depth;
     
-    FILE* output_file = fopen(argv[output_name_idx], "w+");
+    FILE* output_file;
+    if (pref & PREF_OUTPUT)
+        output_file = fopen(argv[output_name_idx], "w+");
+    else output_file = stdout;
     if (!output_file)
         return perror("File"), -1;
     
-    if (compact) {
+    char* array_name = pref & PREF_NAME ? argv[array_name_idx] : "image";
+    
+    if (pref & PREF_COMPACT) {
         fprintf(output_file, "/*Image generated with img2c*/"
                              "int %s_width=%d,%s_height=%d,%s_depth=%d;"
                              "unsigned char %s_data[%llu]={",
-                             argv[array_name_idx], img_width,
-                             argv[array_name_idx], img_height,
-                             argv[array_name_idx], img_depth,
-                             argv[array_name_idx], img_size);
+                             array_name, img_width,
+                             array_name, img_height,
+                             array_name, img_depth,
+                             array_name, img_size);
         for (int i = 0; i<img_size; i++){
             fprintf(output_file, "%d,", img_data[i]);
         }
@@ -58,11 +64,10 @@ int main(int argc, const char* argv[]){
         fprintf(output_file, "// Image generated with img2c\n"
                              "int %s_width = %d, %s_height = %d, %s_depth = %d;\n"
                              "unsigned char %s_data[%llu] = {",
-                             argv[array_name_idx], img_width,
-                             argv[array_name_idx], img_height,
-                             argv[array_name_idx], img_depth,
-                             argv[array_name_idx], img_size);
-                             
+                             array_name, img_width,
+                             array_name, img_height,
+                             array_name, img_depth,
+                             array_name, img_size);
         for (int i = 0; i<img_size; i++){
             if (i%img_depth == 0)
                 fprintf(output_file, " ");
@@ -81,9 +86,9 @@ int main(int argc, const char* argv[]){
     return fprintf(stderr,
             "Usage: %s [options] file\n\n"
             "Options:\n"
-            "\t-o\toutput file destination (required)\n"
-            "\t-n\tarray name (required)\n"
+            "\t-o\toutput file destination\n"
+            "\t-n\tarray name\n"
             "\t-c\tcompact output\n"
-            , argv[0]
+            "\n", argv[0]
             ), -1;
 }
